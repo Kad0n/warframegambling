@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Void Wager</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="voidCanvas" aria-hidden="true"></canvas>
+
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand-block">
+        <span class="eyebrow">Maroo's Bazaar Table</span>
+        <h1>Void Wager</h1>
+        <p>Current Prime Resurgence: Grendel Prime & Gauss Prime. Simulated credits only.</p>
+      </div>
+
+      <section class="wallet" aria-label="Wallet">
+        <article>
+          <span>Credits</span>
+          <strong id="creditsValue">0</strong>
+        </article>
+        <article>
+          <span>Void Traces</span>
+          <strong id="tracesValue">0</strong>
+        </article>
+        <article>
+          <span>Ducats</span>
+          <strong id="ducatsValue">0</strong>
+        </article>
+        <article>
+          <span>Endo</span>
+          <strong id="endoValue">0</strong>
+        </article>
+        <article>
+          <span>Kuva</span>
+          <strong id="kuvaValue">0</strong>
+        </article>
+      </section>
+    </header>
+
+    <section class="table-layout">
+      <aside class="panel relic-panel">
+        <div class="panel-heading">
+          <span class="eyebrow">Prime Resurgence</span>
+          <h2>Relic Stack</h2>
+        </div>
+        <div class="filter-block">
+          <label for="targetFilter">Filter by build target</label>
+          <select id="targetFilter"></select>
+          <p id="filterSummary">Current rotation loading...</p>
+        </div>
+        <div id="relicList" class="relic-list" aria-label="Relic list"></div>
+      </aside>
+
+      <section class="panel core-panel">
+        <div class="mission-strip">
+          <span id="missionNode">Void/Ukko</span>
+          <strong id="missionFaction">Orokin Corrupted</strong>
+        </div>
+
+        <div class="relic-stage" id="relicStage">
+          <div class="relic-orbit">
+            <div class="relic-core" id="relicCore">
+              <span id="activeTier">Lith</span>
+              <strong id="activeRelicName">C14</strong>
+            </div>
+          </div>
+          <div class="result-card" id="resultCard">
+            <span id="resultRarity">Awaiting Fissure</span>
+            <strong id="resultName">Select stake and crack</strong>
+            <small id="resultPayout">No wager settled yet</small>
+          </div>
+        </div>
+
+        <div class="reward-grid" id="rewardGrid" aria-label="Relic rewards"></div>
+
+        <div class="controls-grid">
+          <section class="control-block">
+            <div class="control-head">
+              <span>Refinement</span>
+              <strong id="traceCostLabel">0 traces</strong>
+            </div>
+            <div class="segmented" id="refinementButtons" aria-label="Refinement"></div>
+          </section>
+
+          <section class="control-block">
+            <div class="control-head">
+              <span>Rarity Wager</span>
+              <strong id="payoutLabel">0x</strong>
+            </div>
+            <div class="segmented rarity-segment" id="rarityButtons" aria-label="Rarity wager"></div>
+          </section>
+
+          <section class="control-block stake-block">
+            <div class="control-head">
+              <span>Stake</span>
+              <strong id="stakeLabel">0</strong>
+            </div>
+            <input id="stakeRange" type="range" min="500" max="10000" step="500" value="2500">
+            <div class="chip-row" id="chipButtons"></div>
+          </section>
+        </div>
+
+        <div class="odds-board" id="oddsBoard"></div>
+
+        <div class="action-row">
+          <button class="primary-action" id="crackButton" type="button">Crack Relic</button>
+          <button class="secondary-action" id="baroButton" type="button">Trade Ducats</button>
+          <button class="secondary-action" id="cacheButton" type="button">Syndicate Cache</button>
+        </div>
+      </section>
+
+      <aside class="panel ledger-panel">
+        <div class="panel-heading">
+          <span class="eyebrow">Cephalon Ledger</span>
+          <h2>Run State</h2>
+        </div>
+
+        <div class="stat-grid">
+          <article>
+            <span>Cracks</span>
+            <strong id="cracksValue">0</strong>
+          </article>
+          <article>
+            <span>Streak</span>
+            <strong id="streakValue">0</strong>
+          </article>
+          <article>
+            <span>Best</span>
+            <strong id="bestValue">0</strong>
+          </article>
+          <article>
+            <span>Last</span>
+            <strong id="lastValue">--</strong>
+          </article>
+        </div>
+
+        <div class="inventory">
+          <h3>Prime Bin</h3>
+          <div id="inventoryList" class="inventory-list"></div>
+        </div>
+
+        <div class="ledger">
+          <h3>Recent Cracks</h3>
+          <ol id="ledgerList"></ol>
+        </div>
+
+        <button class="danger-action" id="resetButton" type="button">Reset Run</button>
+      </aside>
+    </section>
+
+    <footer>
+      <span>Warframe and related names belong to Digital Extremes. This page is an unofficial fan project.</span>
+      <a href="https://www.warframe.com/droptables" target="_blank" rel="noreferrer">Official Drop Tables</a>
+      <a href="https://www.warframe.com/en/prime-resurgence" target="_blank" rel="noreferrer">Prime Resurgence</a>
+      <a href="https://wiki.warframe.com/w/Void_Relic" target="_blank" rel="noreferrer">Void Relic Reference</a>
+    </footer>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
