@@ -1,4 +1,6 @@
-const STORAGE_KEY = "void-wager-state-v2";
+const STORAGE_KEY = "void-wager-state-v3";
+const RELIC_PACK_COST = 3;
+const RELICS_PER_PACK = 3;
 
 const refinements = {
   Intact: {
@@ -178,10 +180,10 @@ const randomEvents = [
     }
   },
   {
-    name: "Kuva Siphon Detour",
+    name: "Aya Cache Detour",
     apply(result) {
-      result.kuva += result.reward.rarity === "rare" ? 650 : 260;
-      result.notes.push("Kuva Siphon detour paid out.");
+      result.aya += result.reward.rarity === "rare" ? 2 : 1;
+      result.notes.push("Aya cache detour paid out.");
     }
   },
   {
@@ -194,19 +196,24 @@ const randomEvents = [
   {
     name: "Varzia Favor",
     apply(result) {
+      result.aya += 1;
       result.traceBonus += 15;
       result.creditPayout += 1200;
-      result.notes.push("Varzia favor: +15 traces and 1,200 credits.");
+      result.notes.push("Varzia favor: +1 Aya, +15 traces, and 1,200 credits.");
     }
   }
 ];
+
+function createRelicInventory(count = 1) {
+  return Object.fromEntries(relics.map((relic) => [relic.id, count]));
+}
 
 const initialState = {
   credits: 45000,
   traces: 150,
   ducats: 0,
   endo: 300,
-  kuva: 0,
+  aya: 6,
   selectedRelicId: "lith-a11",
   selectedRefinement: "Intact",
   targetFilter: "all",
@@ -217,6 +224,7 @@ const initialState = {
   bestStreak: 0,
   last: "--",
   lastRewardName: null,
+  relicInventory: createRelicInventory(1),
   inventory: {},
   ledger: []
 };
@@ -229,7 +237,7 @@ const dom = {
   traces: document.querySelector("#tracesValue"),
   ducats: document.querySelector("#ducatsValue"),
   endo: document.querySelector("#endoValue"),
-  kuva: document.querySelector("#kuvaValue"),
+  aya: document.querySelector("#ayaValue"),
   targetFilter: document.querySelector("#targetFilter"),
   filterSummary: document.querySelector("#filterSummary"),
   relicList: document.querySelector("#relicList"),
@@ -242,6 +250,7 @@ const dom = {
   payoutLabel: document.querySelector("#payoutLabel"),
   oddsBoard: document.querySelector("#oddsBoard"),
   crackButton: document.querySelector("#crackButton"),
+  packButton: document.querySelector("#packButton"),
   baroButton: document.querySelector("#baroButton"),
   cacheButton: document.querySelector("#cacheButton"),
   resetButton: document.querySelector("#resetButton"),
@@ -267,11 +276,28 @@ const dom = {
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return { ...initialState, inventory: {}, ledger: [] };
-    return { ...initialState, ...JSON.parse(saved) };
+    if (!saved) return freshState();
+    const parsed = JSON.parse(saved);
+    return {
+      ...freshState(),
+      ...parsed,
+      aya: parsed.aya ?? initialState.aya,
+      relicInventory: { ...createRelicInventory(0), ...(parsed.relicInventory || initialState.relicInventory) },
+      inventory: parsed.inventory || {},
+      ledger: parsed.ledger || []
+    };
   } catch {
-    return { ...initialState, inventory: {}, ledger: [] };
+    return freshState();
   }
+}
+
+function freshState() {
+  return {
+    ...initialState,
+    relicInventory: createRelicInventory(1),
+    inventory: {},
+    ledger: []
+  };
 }
 
 function saveState() {
@@ -288,6 +314,14 @@ function formatMultiplier(value) {
 
 function activeRelic() {
   return relics.find((relic) => relic.id === state.selectedRelicId) || filteredRelics()[0] || relics[0];
+}
+
+function activeRelicStock() {
+  return state.relicInventory[activeRelic().id] || 0;
+}
+
+function totalRelicStock() {
+  return Object.values(state.relicInventory || {}).reduce((sum, count) => sum + count, 0);
 }
 
 function activeRefinement() {
@@ -354,7 +388,7 @@ function renderWallet() {
   dom.traces.textContent = formatNumber(state.traces);
   dom.ducats.textContent = formatNumber(state.ducats);
   dom.endo.textContent = formatNumber(state.endo);
-  dom.kuva.textContent = formatNumber(state.kuva);
+  dom.aya.textContent = formatNumber(state.aya);
 }
 
 function renderTargetFilter() {
@@ -373,7 +407,7 @@ function renderTargetFilter() {
   dom.targetFilter.value = target.id;
 
   if (target.id === "all") {
-    dom.filterSummary.textContent = `${currentRotation.name}: ${visible.length} current relics. ${currentRotation.dropTableDate}.`;
+    dom.filterSummary.textContent = `${currentRotation.name}: ${visible.length} current relics. Relic packs cost ${RELIC_PACK_COST} Aya.`;
     return;
   }
 
@@ -383,7 +417,7 @@ function renderTargetFilter() {
       .filter((reward) => reward.item === target.name)
       .forEach((reward) => parts.add(reward.part));
   });
-  dom.filterSummary.textContent = `${target.type}: ${parts.size} parts across ${visible.length} relics.`;
+  dom.filterSummary.textContent = `${target.type}: ${parts.size} parts across ${visible.length} relics. Packs use this filter.`;
 }
 
 function renderRelics() {
@@ -400,10 +434,11 @@ function renderRelics() {
     const targets = targetNamesForRelic(entry);
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `relic-card${entry.id === state.selectedRelicId ? " active" : ""}`;
     button.style.color = entry.accent;
+    const stock = state.relicInventory[entry.id] || 0;
+    button.className = `relic-card${entry.id === state.selectedRelicId ? " active" : ""}${stock <= 0 ? " empty" : ""}`;
     button.innerHTML = `
-      <span>${entry.tier} Relic</span>
+      <span>${entry.tier} Relic · x${stock}</span>
       <strong>${entry.name}</strong>
       <small>${targets.join(", ")} / rare: ${rare.name}</small>
     `;
@@ -555,9 +590,12 @@ function renderLedger() {
 
 function updateActionState() {
   const refinement = activeRefinement();
-  dom.crackButton.disabled = isCracking || state.credits < state.wager || state.traces < refinement.traceCost;
+  const needsRelic = activeRelicStock() <= 0;
+  dom.crackButton.disabled = isCracking || needsRelic || state.credits < state.wager || state.traces < refinement.traceCost;
+  dom.packButton.disabled = isCracking || state.aya < RELIC_PACK_COST;
+  dom.packButton.textContent = `Relic Pack (${RELIC_PACK_COST} Aya)`;
   dom.baroButton.disabled = state.ducats < 25 || isCracking;
-  dom.cacheButton.disabled = isCracking || (state.credits >= 500 && state.traces >= 25);
+  dom.cacheButton.disabled = isCracking || (state.credits >= 500 && state.traces >= 25 && state.aya >= RELIC_PACK_COST);
 }
 
 function crackRelic() {
@@ -572,10 +610,15 @@ function crackRelic() {
     setResultNeutral("Need more Void Traces");
     return;
   }
+  if (activeRelicStock() <= 0) {
+    setResultNeutral(`No ${activeRelic().name} relics owned`);
+    return;
+  }
 
   isCracking = true;
   state.credits -= state.wager;
   state.traces -= refinement.traceCost;
+  state.relicInventory[activeRelic().id] -= 1;
   dom.relicStage.classList.add("cracking");
   dom.crackButton.disabled = true;
 
@@ -609,7 +652,7 @@ function settleCrack() {
     creditPayout: matched ? Math.round(state.wager * multiplier) : 0,
     ducats: reward.ducats,
     endo: rarity === "rare" ? 300 : rarity === "uncommon" ? 125 : 45,
-    kuva: rarity === "rare" ? 450 : 0,
+    aya: rarity === "rare" ? 2 : rarity === "uncommon" ? 1 : 0,
     traceBonus: rarity === "rare" ? 18 : rarity === "uncommon" ? 8 : 3,
     notes: []
   };
@@ -623,7 +666,7 @@ function settleCrack() {
   state.credits += result.creditPayout;
   state.ducats += result.ducats;
   state.endo += result.endo;
-  state.kuva += result.kuva;
+  state.aya += result.aya;
   state.traces += result.traceBonus;
   state.cracks += 1;
   state.streak = matched ? state.streak + 1 : 0;
@@ -638,7 +681,7 @@ function settleCrack() {
     : `${sign}${formatNumber(state.wager)} credits`;
   const notes = result.notes.length ? ` ${result.notes.join(" ")}` : "";
   state.ledger.unshift(
-    `<strong>${activeRelic().name}</strong> cracked ${capitalize(rarity)}: ${reward.name}. ${settled}. +${result.ducats} Ducats, +${result.traceBonus} traces.${notes}`
+    `<strong>${activeRelic().name}</strong> cracked ${capitalize(rarity)}: ${reward.name}. ${settled}. +${result.ducats} Ducats, +${result.aya} Aya, +${result.traceBonus} traces.${notes}`
   );
   state.ledger = state.ledger.slice(0, 24);
 
@@ -648,7 +691,7 @@ function settleCrack() {
   dom.resultName.textContent = reward.name;
   dom.resultPayout.textContent = matched
     ? `Paid ${formatNumber(result.creditPayout)} credits at ${formatMultiplier(multiplier)}`
-    : `Wager missed; kept ${result.ducats} Ducats and ${result.traceBonus} traces`;
+    : `Wager missed; kept ${result.ducats} Ducats, ${result.aya} Aya, and ${result.traceBonus} traces`;
 
   isCracking = false;
   renderRewards(reward);
@@ -682,20 +725,37 @@ function tradeDucats() {
   render();
 }
 
+function redeemRelicPack() {
+  if (state.aya < RELIC_PACK_COST || isCracking) return;
+  const pool = filteredRelics();
+  const packPool = pool.length ? pool : relics;
+  const opened = Array.from({ length: RELICS_PER_PACK }, () => packPool[Math.floor(Math.random() * packPool.length)]);
+  state.aya -= RELIC_PACK_COST;
+  opened.forEach((relic) => {
+    state.relicInventory[relic.id] = (state.relicInventory[relic.id] || 0) + 1;
+  });
+  const names = opened.map((relic) => relic.name).join(", ");
+  state.last = "Pack";
+  state.ledger.unshift(`<strong>Varzia relic pack</strong>: spent ${RELIC_PACK_COST} Aya and received ${names}.`);
+  setResultNeutral(`Relic pack opened: ${names}`);
+  render();
+}
+
 function claimCache() {
-  if (state.credits >= 500 && state.traces >= 25) return;
+  if (state.credits >= 500 && state.traces >= 25 && state.aya >= RELIC_PACK_COST) return;
   state.credits += 12000;
   state.traces += 25;
+  state.aya += 1;
   state.last = "Cache";
   state.streak = 0;
-  state.ledger.unshift("<strong>Syndicate Cache</strong>: +12,000 credits and +25 Void Traces.");
+  state.ledger.unshift("<strong>Syndicate Cache</strong>: +12,000 credits, +25 Void Traces, and +1 Aya.");
   render();
 }
 
 function resetRun() {
   const ok = window.confirm("Reset this Void Wager run?");
   if (!ok) return;
-  state = { ...initialState, inventory: {}, ledger: [] };
+  state = freshState();
   setResultNeutral();
   render();
 }
@@ -715,6 +775,7 @@ function bindEvents() {
     saveState();
   });
   dom.crackButton.addEventListener("click", crackRelic);
+  dom.packButton.addEventListener("click", redeemRelicPack);
   dom.baroButton.addEventListener("click", tradeDucats);
   dom.cacheButton.addEventListener("click", claimCache);
   dom.resetButton.addEventListener("click", resetRun);
